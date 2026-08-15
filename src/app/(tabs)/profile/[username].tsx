@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Dimensions } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { api } from '../../../services/api';
 import { colors, typography, spacing, radius } from '../../../theme';
 import { Image } from 'expo-image';
@@ -13,6 +13,7 @@ export default function UserProfileScreen() {
   const [profile, setProfile] = useState<any>(null);
   const [videos, setVideos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   const fetchData = async () => {
     try {
@@ -52,6 +53,18 @@ export default function UserProfileScreen() {
     }
   };
 
+  const handleMessage = async () => {
+    try {
+      const res = await api.get(`/chat/user/${profile._id}`);
+      if (res.data.success) {
+        const conversationId = res.data.data._id;
+        router.push(`/chat/${conversationId}?otherUserId=${profile._id}&otherUsername=${profile.username}` as any);
+      }
+    } catch (error) {
+      console.error('Error starting chat:', error);
+    }
+  };
+
   if (loading) {
     return <View style={styles.center}><ActivityIndicator color={colors.accent} /></View>;
   }
@@ -77,12 +90,21 @@ export default function UserProfileScreen() {
           </View>
         </View>
 
-        <TouchableOpacity 
-          style={[styles.followBtn, profile.isFollowing && styles.followingBtn]} 
-          onPress={handleFollow}
-        >
-          <Text style={styles.followBtnText}>{profile.isFollowing ? 'Following' : 'Follow'}</Text>
-        </TouchableOpacity>
+        <View style={styles.actionButtons}>
+          <TouchableOpacity 
+            style={[styles.followBtn, profile.isFollowing && styles.followingBtn]} 
+            onPress={handleFollow}
+          >
+            <Text style={styles.followBtnText}>{profile.isFollowing ? 'Following' : 'Follow'}</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.messageBtn} 
+            onPress={handleMessage}
+          >
+            <Text style={styles.messageBtnText}>Message</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <FlatList
@@ -110,9 +132,12 @@ const styles = StyleSheet.create({
   statItem: { alignItems: 'center' },
   statNumber: { color: colors.primary, fontSize: typography.size.md, fontWeight: 'bold' },
   statLabel: { color: '#888', fontSize: typography.size.sm },
-  followBtn: { backgroundColor: colors.accent, paddingHorizontal: 40, paddingVertical: 10, borderRadius: radius.sm },
+  actionButtons: { flexDirection: 'row', gap: spacing.md },
+  followBtn: { backgroundColor: colors.accent, paddingHorizontal: 30, paddingVertical: 10, borderRadius: radius.sm, flex: 1, alignItems: 'center' },
   followingBtn: { backgroundColor: '#333' },
   followBtnText: { color: colors.primary, fontWeight: 'bold' },
+  messageBtn: { backgroundColor: '#333', paddingHorizontal: 30, paddingVertical: 10, borderRadius: radius.sm, flex: 1, alignItems: 'center' },
+  messageBtnText: { color: colors.primary, fontWeight: 'bold' },
   gridItem: { width: COLUMN_WIDTH, height: COLUMN_WIDTH * 1.5, padding: 1 },
   thumbnail: { width: '100%', height: '100%', backgroundColor: '#222' }
 });

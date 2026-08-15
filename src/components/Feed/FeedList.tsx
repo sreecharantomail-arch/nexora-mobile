@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { FlatList, ViewabilityConfig, ViewToken, Dimensions } from 'react-native';
 import VideoItem from './VideoItem';
+import StoryFeed from '../Story/StoryFeed';
 
 const { height: WINDOW_HEIGHT } = Dimensions.get('window');
 
@@ -21,6 +22,13 @@ export default function FeedList({ data }: FeedListProps) {
     }
   }, []);
 
+  const HEADER_HEIGHT = 100;
+  const ITEM_HEIGHT = WINDOW_HEIGHT - 49;
+  
+  // Calculate snap offsets: first snap is 0 (header + first item visible?), wait, if they snap to 0 they see header. 
+  // Next snap is HEADER_HEIGHT (hides header, shows first item perfectly).
+  const snapToOffsets = [0, HEADER_HEIGHT, ...data.map((_, i) => HEADER_HEIGHT + (i + 1) * ITEM_HEIGHT)];
+
   return (
     <FlatList
       data={data}
@@ -30,7 +38,7 @@ export default function FeedList({ data }: FeedListProps) {
       )}
       pagingEnabled
       showsVerticalScrollIndicator={false}
-      snapToInterval={WINDOW_HEIGHT - 49} // height of item
+      snapToOffsets={snapToOffsets}
       snapToAlignment="start"
       decelerationRate="fast"
       onViewableItemsChanged={onViewableItemsChanged}
@@ -39,6 +47,7 @@ export default function FeedList({ data }: FeedListProps) {
       initialNumToRender={3}
       maxToRenderPerBatch={3}
       windowSize={5}
+      ListHeaderComponent={<StoryFeed />}
     />
   );
 }

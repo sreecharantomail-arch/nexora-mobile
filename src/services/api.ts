@@ -3,7 +3,7 @@ import { getToken, saveToken } from '../utils/secureStore';
 import { useAuthStore } from '../store/authStore';
 
 // Use the live production Render API URL
-const BASE_URL = 'http://localhost:5000/api';
+export const BASE_URL = 'http://192.168.1.49:5000/api';
 
 // eslint-disable-next-line import/no-named-as-default-member
 export const api = axios.create({

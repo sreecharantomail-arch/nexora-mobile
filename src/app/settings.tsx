@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Shield, FileText, Info, LogOut } from 'lucide-react-native';
+import { ArrowLeft, Shield, FileText, Info, LogOut, Users } from 'lucide-react-native';
 import { colors, typography, spacing, radius } from '../theme';
 import { useAuthStore } from '../store/authStore';
 import * as Haptics from 'expo-haptics';
@@ -18,9 +18,9 @@ export default function SettingsScreen() {
     ]);
   };
 
-  const handlePress = (title: string) => {
+  const handlePress = (route: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    Alert.alert(title, 'This would open a webview or screen in the real app.');
+    router.push(route as any);
   };
 
   return (
@@ -37,7 +37,15 @@ export default function SettingsScreen() {
         <Text style={styles.sectionTitle}>Account</Text>
         
         <View style={styles.card}>
-          <TouchableOpacity style={styles.row} onPress={() => handlePress('Privacy Policy')}>
+          <TouchableOpacity style={styles.row} onPress={() => handlePress('/settings/close-friends')}>
+            <View style={styles.rowLeft}>
+              <Users color="#1DB954" size={20} />
+              <Text style={styles.rowText}>Close Friends</Text>
+            </View>
+          </TouchableOpacity>
+          <View style={styles.divider} />
+          
+          <TouchableOpacity style={styles.row} onPress={() => handlePress('/settings/privacy')}>
             <View style={styles.rowLeft}>
               <Shield color={colors.secondary} size={20} />
               <Text style={styles.rowText}>Privacy Policy</Text>
@@ -45,7 +53,7 @@ export default function SettingsScreen() {
           </TouchableOpacity>
           <View style={styles.divider} />
           
-          <TouchableOpacity style={styles.row} onPress={() => handlePress('Terms of Service')}>
+          <TouchableOpacity style={styles.row} onPress={() => handlePress('/settings/terms')}>
             <View style={styles.rowLeft}>
               <FileText color={colors.secondary} size={20} />
               <Text style={styles.rowText}>Terms of Service</Text>
@@ -53,7 +61,7 @@ export default function SettingsScreen() {
           </TouchableOpacity>
           <View style={styles.divider} />
 
-          <TouchableOpacity style={styles.row} onPress={() => handlePress('Community Guidelines')}>
+          <TouchableOpacity style={styles.row} onPress={() => handlePress('/settings/community')}>
             <View style={styles.rowLeft}>
               <Info color={colors.secondary} size={20} />
               <Text style={styles.rowText}>Community Guidelines</Text>

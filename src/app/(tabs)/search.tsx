@@ -8,8 +8,28 @@ import { colors } from '../../theme';
 export default function SearchScreen() {
   const [query, setQuery] = useState('');
   const [users, setUsers] = useState<any[]>([]);
+  const [explorePosts, setExplorePosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [exploreLoading, setExploreLoading] = useState(false);
   const router = useRouter();
+
+  useEffect(() => {
+    fetchExplorePosts();
+  }, []);
+
+  const fetchExplorePosts = async () => {
+    setExploreLoading(true);
+    try {
+      const res = await api.get('/videos/explore');
+      if (res.data.success) {
+        setExplorePosts(res.data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching explore posts:', error);
+    } finally {
+      setExploreLoading(false);
+    }
+  };
 
   useEffect(() => {
     const searchUsers = async () => {
@@ -68,21 +88,37 @@ export default function SearchScreen() {
         />
       </View>
       
-      {loading ? (
-        <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 20 }} />
-      ) : (
-        <FlatList
-          data={users}
-          keyExtractor={(item) => item._id}
-          renderItem={renderUser}
-          ListEmptyComponent={
-            query.trim() !== '' ? (
+      {query.trim() !== '' ? (
+        loading ? (
+          <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 20 }} />
+        ) : (
+          <FlatList
+            data={users}
+            keyExtractor={(item) => item._id}
+            renderItem={renderUser}
+            ListEmptyComponent={
               <Text style={styles.emptyText}>No users found</Text>
-            ) : (
-              <Text style={styles.emptyText}>Search for users to see their profile</Text>
-            )
-          }
-        />
+            }
+          />
+        )
+      ) : (
+        exploreLoading ? (
+          <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 20 }} />
+        ) : (
+          <FlatList
+            data={explorePosts}
+            keyExtractor={(item) => item._id}
+            numColumns={3}
+            renderItem={({ item }) => (
+              <TouchableOpacity 
+                style={styles.gridItem}
+                onPress={() => router.push(`/video/${item._id}`)}
+              >
+                <Image source={{ uri: item.thumbnailUrl }} style={styles.gridImage} />
+              </TouchableOpacity>
+            )}
+          />
+        )
       )}
     </View>
   );
@@ -147,5 +183,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 40,
     fontSize: 16,
+  },
+  gridItem: {
+    flex: 1,
+    aspectRatio: 1,
+    margin: 1,
+  },
+  gridImage: {
+    width: '100%',
+    height: '100%',
   }
 });

@@ -10,6 +10,7 @@ interface User {
   bio?: string;
   followingCount?: number;
   followersCount?: number;
+  closeFriends?: string[];
 }
 
 interface AuthState {

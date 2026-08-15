@@ -32,13 +32,21 @@ function InitialLayout() {
             } else {
               logout();
             }
-          } catch {
-            logout();
+          } catch (error: any) {
+            // Only logout if token is explicitly invalid (401/403)
+            if (error?.response?.status === 401 || error?.response?.status === 403) {
+              logout();
+            } else {
+              // Network error or server down, but token exists. Allow offline/cache entry!
+              // Pass null for user so it can be fetched later
+              login(null as any, token, refreshToken);
+            }
           }
         } else {
           logout();
         }
       } catch {
+        // Fallback for secure store errors
         logout();
       } finally {
         setLoading(false);
@@ -54,10 +62,11 @@ function InitialLayout() {
     if (!rootNavigationState?.key) return; // Wait for navigation container to be ready
 
     const inAuthGroup = segments[0] === '(auth)';
+    const isRoot = segments.length === 0 || (segments[0] as unknown as string) === 'index';
 
     if (!accessToken && !inAuthGroup) {
       router.replace('/(auth)/login');
-    } else if (accessToken && inAuthGroup) {
+    } else if (accessToken && (inAuthGroup || isRoot)) {
       router.replace('/(tabs)');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -76,6 +85,7 @@ function InitialLayout() {
       <Stack.Screen name="(auth)" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="index" options={{ headerShown: false }} />
+      <Stack.Screen name="(modals)" options={{ presentation: 'modal', headerShown: false }} />
     </Stack>
   );
 }

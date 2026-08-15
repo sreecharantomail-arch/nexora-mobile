@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, StyleSheet, Platform, StatusBar as RNStatusBar, ActivityIndicator, Text, TouchableOpacity } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { MessageCircle } from 'lucide-react-native';
 import { colors } from '../../theme';
 import FeedList from '../../components/Feed/FeedList';
 import { api } from '../../services/api';
@@ -9,6 +10,7 @@ export default function HomeScreen() {
   const [videos, setVideos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'foryou' | 'following'>('foryou');
+  const router = useRouter();
 
   const fetchFeed = async () => {
     setLoading(true);
@@ -41,12 +43,17 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.topNav}>
-        <TouchableOpacity onPress={() => setActiveTab('following')}>
-          <Text style={[styles.navText, activeTab === 'following' && styles.activeNavText]}>Following</Text>
-        </TouchableOpacity>
-        <View style={styles.navDivider} />
-        <TouchableOpacity onPress={() => setActiveTab('foryou')}>
-          <Text style={[styles.navText, activeTab === 'foryou' && styles.activeNavText]}>For You</Text>
+        <View style={styles.navTabs}>
+          <TouchableOpacity onPress={() => setActiveTab('following')}>
+            <Text style={[styles.navText, activeTab === 'following' && styles.activeNavText]}>Following</Text>
+          </TouchableOpacity>
+          <View style={styles.navDivider} />
+          <TouchableOpacity onPress={() => setActiveTab('foryou')}>
+            <Text style={[styles.navText, activeTab === 'foryou' && styles.activeNavText]}>For You</Text>
+          </TouchableOpacity>
+        </View>
+        <TouchableOpacity style={styles.inboxButton} onPress={() => router.push('/inbox')}>
+          <MessageCircle color="#fff" size={28} />
         </TouchableOpacity>
       </View>
 
@@ -75,14 +82,23 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === 'android' ? RNStatusBar.currentHeight : 0,
   },
   topNav: {
-    position: 'absolute',
-    top: Platform.OS === 'android' ? (RNStatusBar.currentHeight || 0) + 20 : 50,
-    left: 0,
-    right: 0,
+    paddingTop: Platform.OS === 'android' ? (RNStatusBar.currentHeight || 0) + 10 : 50,
+    paddingBottom: 10,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 10,
+    paddingHorizontal: 16,
+  },
+  navTabs: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  inboxButton: {
+    position: 'absolute',
+    right: 16,
   },
   navText: {
     color: colors.secondary,
