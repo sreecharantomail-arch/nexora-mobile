@@ -17,12 +17,19 @@ export default function CommunityGuidelinesScreen() {
         <View style={styles.backPlaceholder} />
       </View>
       <ScrollView style={styles.content}>
+        <Text style={styles.sectionTitle}>1. Respect All Creators & Viewers</Text>
         <Text style={styles.text}>
-          Welcome to NEXORA&apos;s Community Guidelines. {"\n\n"}
-          1. Respect Everyone: Treat others with respect. Harassment, hate speech, and bullying are strictly prohibited. {"\n\n"}
-          2. Keep it Safe: Do not post content that is dangerous, illegal, or promotes self-harm. {"\n\n"}
-          3. Be Authentic: Do not impersonate others or spread misinformation. {"\n\n"}
-          (This is a placeholder for the full community guidelines.)
+          Treat every member of the NEXORA community with respect. Harassment, hate speech, bullying, and targeted abuse are strictly prohibited and result in permanent suspension.
+        </Text>
+
+        <Text style={styles.sectionTitle}>2. Safety & Authentic Content</Text>
+        <Text style={styles.text}>
+          Do not post content that depicts violence, dangerous acts, illegal activities, or self-harm. Impersonating other users or spreading deceptive spam is unacceptable.
+        </Text>
+
+        <Text style={styles.sectionTitle}>3. Moderation & Enforcement</Text>
+        <Text style={styles.text}>
+          Our moderation system reviews reported content. Content violating these guidelines will be restricted or removed, and repeat offenders will face account termination.
         </Text>
       </ScrollView>
     </View>
@@ -40,5 +47,6 @@ const styles = StyleSheet.create({
   backPlaceholder: { width: 32 },
   headerTitle: { color: colors.primary, fontSize: typography.size.lg, fontWeight: 'bold' },
   content: { flex: 1, padding: spacing.lg },
-  text: { color: colors.secondary, fontSize: typography.size.md, lineHeight: 24 },
+  sectionTitle: { color: colors.primary, fontSize: typography.size.md, fontWeight: 'bold', marginTop: spacing.md, marginBottom: spacing.xs },
+  text: { color: colors.secondary, fontSize: typography.size.sm, lineHeight: 22 },
 });

@@ -14,11 +14,18 @@ export default function UploadPreviewScreen() {
   const [caption, setCaption] = useState('');
   const [isUploading, setIsUploading] = useState(false);
 
-  // Fallback for legacy single selection
-  const mediaItems = mediaItemsStr ? JSON.parse(mediaItemsStr) : (uri ? [{ uri, duration: duration ? Number(duration) : 0, type }] : []);
+  // Fallback for legacy single selection or camera capture
+  const mediaItems = mediaItemsStr ? JSON.parse(mediaItemsStr) : (uri ? [{ 
+    uri, 
+    duration: duration ? Number(duration) : 0, 
+    type: type || (/\.(mp4|mov|quicktime|avi|mkv|webm)$/i.test(uri) ? 'video' : 'image') 
+  }] : []);
   const firstMedia = mediaItems[0];
 
-  const player = useVideoPlayer(firstMedia?.uri || '', player => {
+  const isVideo = firstMedia?.type === 'video' || (firstMedia?.uri && /\.(mp4|mov|quicktime|avi|mkv|webm)$/i.test(firstMedia.uri));
+  const isImage = !!firstMedia?.uri && !isVideo;
+
+  const player = useVideoPlayer(isVideo ? firstMedia.uri : null, player => {
     player.loop = true;
     player.play();
   });
@@ -28,42 +35,53 @@ export default function UploadPreviewScreen() {
     
     setIsUploading(true);
     try {
-      const formData = new FormData();
+      const item = mediaItems[0];
       const endpoint = target === 'feed' ? '/videos' : '/stories';
-      const formDataField = target === 'feed' ? 'media' : 'media'; // upload.array('media') and upload.single('media')
+      const token = useAuthStore.getState().accessToken;
 
-      for (let i = 0; i < mediaItems.length; i++) {
-        const item = mediaItems[i];
-        
-        // In modern React Native (0.74+) and Web, fetch() supports Blob uploads universally
-        const uriToFetch = Platform.OS === 'android' ? String(item.uri) : String(item.uri).replace('file://', '');
-        const localResponse = await fetch(uriToFetch);
-        const blob = await localResponse.blob();
-        
-        const fileName = item.type === 'image' ? `upload_${i}.jpg` : `upload_${i}.mp4`;
-        const fileType = item.type === 'image' ? 'image/jpeg' : 'video/mp4';
-        
-        // Append as a standard Blob (fetch backend compliant)
-        formData.append(formDataField, blob, fileName);
-        
-        if (item.duration) formData.append('duration', String(item.duration));
+      const fileExt = item.type === 'video' ? 'mp4' : (item.uri.toLowerCase().endsWith('.png') ? 'png' : 'jpg');
+      const mimeType = item.type === 'video' ? 'video/mp4' : (fileExt === 'png' ? 'image/png' : 'image/jpeg');
+
+      // Read local media file into a Web-standard Blob using React Native 0.86 native networking
+      let rawBlob: Blob;
+      try {
+        const fileResponse = await fetch(item.uri);
+        rawBlob = await fileResponse.blob();
+      } catch {
+        const decodedUri = decodeURIComponent(item.uri);
+        const fileResponse = await fetch(decodedUri);
+        rawBlob = await fileResponse.blob();
       }
-      
+
+      // Re-create Blob with explicit MIME type so Multer recognizes video/image MIME
+      const typedBlob = new Blob([rawBlob], { type: mimeType });
+
+      // Append Blob to FormData (React Native 0.86 supports Web-standard Blob natively)
+      const formData = new FormData();
       formData.append('caption', String(caption).trim());
       formData.append('audience', String(audience));
+      formData.append('duration', String(item.duration || 0));
+      formData.append('media', typedBlob, `upload.${fileExt}`);
 
-      const token = useAuthStore.getState().accessToken;
-      const res = await fetch(`${BASE_URL}${endpoint}`, {
+      // Native fetch automatically injects the multipart/form-data boundary when Content-Type header is omitted
+      const response = await fetch(`${BASE_URL}${endpoint}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
         },
-        body: formData
+        body: formData,
       });
-      
-      const responseData = await res.json();
 
-      if (responseData.success) {
+      const responseText = await response.text();
+      let responseData: any = {};
+      try {
+        responseData = JSON.parse(responseText);
+      } catch {
+        responseData = { success: false, error: { message: `Server error (${response.status})` } };
+      }
+
+      if (response.ok && responseData.success) {
         Alert.alert('Success', 'Your post has been published!', [
           {
             text: 'OK',
@@ -74,11 +92,17 @@ export default function UploadPreviewScreen() {
           }
         ]);
       } else {
-        Alert.alert('Upload Failed', responseData.error?.message || 'Something went wrong.');
+        Alert.alert('Upload Failed', responseData.error?.message || `Upload rejected (${response.status}).`);
       }
     } catch (error: any) {
       console.error('Upload Error:', error);
-      Alert.alert('Upload Failed', error.response?.data?.error?.message || 'Failed to upload video.');
+      
+      let errorMessage = 'Failed to upload. Please check your network connection.';
+      if (error?.message) {
+        errorMessage = error.message;
+      }
+      
+      Alert.alert('Upload Failed', errorMessage);
     } finally {
       setIsUploading(false);
     }
@@ -99,9 +123,13 @@ export default function UploadPreviewScreen() {
 
       <View style={styles.content}>
         <View style={styles.previewContainer}>
-          {firstMedia ? (
-            firstMedia.type === 'image' ? (
-              <Image source={{ uri: firstMedia.uri }} style={styles.video} resizeMode="cover" />
+          {firstMedia && firstMedia.uri ? (
+            isImage ? (
+              <Image 
+                source={{ uri: firstMedia.uri }} 
+                style={styles.video} 
+                resizeMode="cover"
+              />
             ) : (
               <VideoView
                 style={styles.video}
@@ -111,7 +139,9 @@ export default function UploadPreviewScreen() {
               />
             )
           ) : (
-            <Text style={{ color: colors.primary }}>No media selected</Text>
+            <View style={styles.noMediaContainer}>
+              <Text style={styles.noMediaText}>No media selected</Text>
+            </View>
           )}
           {mediaItems.length > 1 && (
             <View style={styles.badge}>
@@ -206,6 +236,17 @@ const styles = StyleSheet.create({
   video: {
     width: '100%',
     height: '100%',
+  },
+  noMediaContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.xs,
+  },
+  noMediaText: {
+    color: colors.secondary,
+    fontSize: typography.size.xs,
+    textAlign: 'center',
   },
   input: {
     backgroundColor: colors.inputBg,

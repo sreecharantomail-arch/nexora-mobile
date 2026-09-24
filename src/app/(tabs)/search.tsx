@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, FlatList, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Search as SearchIcon } from 'lucide-react-native';
+import { Search as SearchIcon, Heart } from 'lucide-react-native';
 import { api } from '../../services/api';
 import { colors } from '../../theme';
 
@@ -14,22 +14,22 @@ export default function SearchScreen() {
   const router = useRouter();
 
   useEffect(() => {
+    const fetchExplorePosts = async () => {
+      setExploreLoading(true);
+      try {
+        const res = await api.get('/videos/explore');
+        if (res.data.success) {
+          setExplorePosts(res.data.data);
+        }
+      } catch (error) {
+        console.error('Error fetching explore posts:', error);
+      } finally {
+        setExploreLoading(false);
+      }
+    };
+
     fetchExplorePosts();
   }, []);
-
-  const fetchExplorePosts = async () => {
-    setExploreLoading(true);
-    try {
-      const res = await api.get('/videos/explore');
-      if (res.data.success) {
-        setExplorePosts(res.data.data);
-      }
-    } catch (error) {
-      console.error('Error fetching explore posts:', error);
-    } finally {
-      setExploreLoading(false);
-    }
-  };
 
   useEffect(() => {
     const searchUsers = async () => {
@@ -93,6 +93,7 @@ export default function SearchScreen() {
           <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 20 }} />
         ) : (
           <FlatList
+            key="users-list"
             data={users}
             keyExtractor={(item) => item._id}
             renderItem={renderUser}
@@ -106,6 +107,7 @@ export default function SearchScreen() {
           <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 20 }} />
         ) : (
           <FlatList
+            key="explore-list"
             data={explorePosts}
             keyExtractor={(item) => item._id}
             numColumns={3}
@@ -115,6 +117,10 @@ export default function SearchScreen() {
                 onPress={() => router.push(`/video/${item._id}`)}
               >
                 <Image source={{ uri: item.thumbnailUrl }} style={styles.gridImage} />
+                <View style={styles.gridOverlay}>
+                  <Heart color={colors.primary} fill={colors.primary} size={12} />
+                  <Text style={styles.gridStatsText}>{item.likesCount || 0}</Text>
+                </View>
               </TouchableOpacity>
             )}
           />
@@ -188,9 +194,27 @@ const styles = StyleSheet.create({
     flex: 1,
     aspectRatio: 1,
     margin: 1,
+    position: 'relative',
   },
   gridImage: {
     width: '100%',
     height: '100%',
+  },
+  gridOverlay: {
+    position: 'absolute',
+    bottom: 4,
+    right: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+    gap: 4,
+  },
+  gridStatsText: {
+    color: colors.primary,
+    fontSize: 10,
+    fontWeight: 'bold',
   }
 });

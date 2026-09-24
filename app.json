@@ -12,6 +12,7 @@
       "bundleIdentifier": "com.nexora.app"
     },
     "android": {
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -27,6 +28,21 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow NEXORA to access your camera to record short videos.",
+          "microphonePermission": "Allow NEXORA to access your microphone to record audio with your videos.",
+          "recordAudioAndroid": true
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow NEXORA to access your photos to upload videos and profile pictures.",
+          "cameraPermission": "Allow NEXORA to access your camera to capture media."
+        }
+      ],
       [
         "expo-splash-screen",
         {

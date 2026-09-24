@@ -105,7 +105,10 @@ export default function UserProfileScreen() {
   };
 
   const renderVideoThumbnail = ({ item }: { item: any }) => (
-    <TouchableOpacity style={styles.thumbnailContainer}>
+    <TouchableOpacity 
+      style={styles.thumbnailContainer} 
+      onPress={() => router.push(`/video/${item._id}` as any)}
+    >
       <Image source={{ uri: item.thumbnailUrl }} style={styles.thumbnail} resizeMode="cover" />
     </TouchableOpacity>
   );

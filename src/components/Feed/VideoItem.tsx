@@ -1,16 +1,16 @@
-import React, { useState, useRef } from 'react';
-import { View, Text, StyleSheet, Dimensions, TouchableWithoutFeedback, TouchableOpacity, Share, Animated, Image, FlatList } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Dimensions, TouchableWithoutFeedback, TouchableOpacity, Share, Animated, Image, FlatList, Alert } from 'react-native';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
-import { Heart, MessageCircle, Share2, Bookmark, AlertTriangle } from 'lucide-react-native';
+import { Heart, MessageCircle, Share2, Bookmark, AlertTriangle, Trash2 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
 import VideoPlayer from './VideoPlayer';
 import CommentsSheet from './CommentsSheet';
-import { colors, typography, spacing } from '../../theme';
+import { colors, typography, spacing, radius } from '../../theme';
 import { api } from '../../services/api';
+import { useAuthStore } from '../../store/authStore';
 
-const { height: WINDOW_HEIGHT, width: WINDOW_WIDTH } = Dimensions.get('window');
+const { width: WINDOW_WIDTH } = Dimensions.get('window');
 
 interface VideoData {
   _id: string;
@@ -34,9 +34,12 @@ interface VideoData {
 interface VideoItemProps {
   item: VideoData;
   isActive: boolean;
+  height?: number;
 }
 
-export default function VideoItem({ item, isActive }: VideoItemProps) {
+export default function VideoItem({ item, isActive, height }: VideoItemProps) {
+  const [measuredHeight, setMeasuredHeight] = useState<number | null>(null);
+  const effectiveHeight = height || measuredHeight || undefined;
   const router = useRouter();
   const [isLiked, setIsLiked] = useState(item.isLiked || false);
   const [likesCount, setLikesCount] = useState(item.likesCount);
@@ -46,9 +49,10 @@ export default function VideoItem({ item, isActive }: VideoItemProps) {
   const [lastTap, setLastTap] = useState(0);
   const [showHeart, setShowHeart] = useState(false);
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
-  const heartScale = useRef(new Animated.Value(0)).current;
+  const [heartScale] = useState(() => new Animated.Value(0));
 
   const handleVideoTap = () => {
+    // eslint-disable-next-line react-hooks/purity
     const now = Date.now();
     const DOUBLE_PRESS_DELAY = 300;
     if (now - lastTap < DOUBLE_PRESS_DELAY) {
@@ -121,6 +125,44 @@ export default function VideoItem({ item, isActive }: VideoItemProps) {
     }
   };
 
+  const currentUser = useAuthStore(state => state.user);
+  const isOwner = currentUser?._id && (
+    (item.userId as any)?._id === currentUser._id || 
+    (item.user as any)?._id === currentUser._id || 
+    (item.userId as any)?.username === currentUser.username ||
+    (item.user as any)?.username === currentUser.username
+  );
+
+  const handleDelete = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    Alert.alert(
+      'Delete Video',
+      'Are you sure you want to delete this video? This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const res = await api.delete(`/videos/${item._id}`);
+              if (res.data.success) {
+                Alert.alert('Deleted', 'Your video was deleted successfully.');
+                if (router.canGoBack()) {
+                  router.back();
+                } else {
+                  router.replace('/(tabs)/profile');
+                }
+              }
+            } catch (err: any) {
+              Alert.alert('Error', err.response?.data?.error?.message || 'Failed to delete video');
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const handleShare = async () => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -171,7 +213,7 @@ export default function VideoItem({ item, isActive }: VideoItemProps) {
 
   const renderMediaItem = ({ item: m, index }: { item: any, index: number }) => (
     <TouchableWithoutFeedback onPress={handleVideoTap}>
-      <View style={styles.carouselItem}>
+      <View style={[styles.carouselItem, effectiveHeight ? { height: effectiveHeight } : { flex: 1 }]}>
         {m.type === 'image' ? (
           <Image source={{ uri: m.url }} style={styles.videoPlayerImage} resizeMode="cover" />
         ) : (
@@ -182,7 +224,14 @@ export default function VideoItem({ item, isActive }: VideoItemProps) {
   );
 
   return (
-    <View style={styles.container}>
+    <View 
+      style={[styles.container, effectiveHeight ? { height: effectiveHeight } : { flex: 1 }]}
+      onLayout={(e) => {
+        if (!height) {
+          setMeasuredHeight(e.nativeEvent.layout.height);
+        }
+      }}
+    >
       <View style={styles.videoContainer}>
         {mediaItems.length > 1 ? (
           <FlatList
@@ -208,15 +257,12 @@ export default function VideoItem({ item, isActive }: VideoItemProps) {
         )}
       </View>
 
-      <LinearGradient
-        colors={['transparent', 'rgba(4, 0, 12, 0.8)']}
-        style={styles.bottomSection}
-      >
+      <View style={styles.bottomSection}>
         <TouchableOpacity onPress={() => router.push(`/user/${item.userId?.username || item.user?.username}`)}>
           <Text style={styles.username}>@{item.userId?.username || item.user?.username}</Text>
         </TouchableOpacity>
         <Text style={styles.caption}>{renderCaption(item.caption)}</Text>
-      </LinearGradient>
+      </View>
 
       {mediaItems.length > 1 && (
         <View style={styles.paginationContainer}>
@@ -257,10 +303,17 @@ export default function VideoItem({ item, isActive }: VideoItemProps) {
           <Share2 color={colors.primary} size={32} />
           <Text style={styles.actionText}>{item.sharesCount}</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.actionButton} onPress={handleReport}>
-          <AlertTriangle color={colors.secondary} size={24} />
-          <Text style={styles.actionText}>Report</Text>
-        </TouchableOpacity>
+        {isOwner ? (
+          <TouchableOpacity style={styles.actionButton} onPress={handleDelete}>
+            <Trash2 color={colors.error} size={26} />
+            <Text style={[styles.actionText, { color: colors.error }]}>Delete</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity style={styles.actionButton} onPress={handleReport}>
+            <AlertTriangle color={colors.secondary} size={24} />
+            <Text style={styles.actionText}>Report</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <CommentsSheet 
@@ -276,7 +329,6 @@ export default function VideoItem({ item, isActive }: VideoItemProps) {
 const styles = StyleSheet.create({
   container: {
     width: WINDOW_WIDTH,
-    height: WINDOW_HEIGHT - 49, // roughly subtract bottom tab bar height (depends on safe area, can be tuned)
     backgroundColor: colors.background,
   },
   videoContainer: {
@@ -286,7 +338,6 @@ const styles = StyleSheet.create({
   },
   carouselItem: {
     width: WINDOW_WIDTH,
-    height: WINDOW_HEIGHT - 49,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -305,30 +356,35 @@ const styles = StyleSheet.create({
   },
   bottomSection: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0, 
-    paddingTop: 40,
-    paddingBottom: spacing.lg,
-    paddingHorizontal: spacing.md,
-    paddingRight: 80, // leave space for right section
+    bottom: spacing.xl,
+    left: spacing.md,
+    right: 70, // leave space for right section
+    backgroundColor: 'rgba(18, 10, 33, 0.65)',
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   username: {
     color: colors.primary,
     fontSize: typography.size.md,
     fontWeight: 'bold',
     marginBottom: spacing.xs,
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   caption: {
-    color: colors.primary,
+    color: 'rgba(255, 255, 255, 0.9)',
     fontSize: typography.size.sm,
+    lineHeight: 20,
   },
   hashtag: {
-    color: colors.accent,
+    color: colors.accentLight,
     fontWeight: 'bold',
   },
   mention: {
-    color: colors.accentLight,
+    color: colors.neonBlue,
     fontWeight: 'bold',
   },
   paginationContainer: {
@@ -350,19 +406,25 @@ const styles = StyleSheet.create({
   },
   paginationDotActive: {
     backgroundColor: colors.primary,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 16, // elongated dot for active
+    height: 6,
+    borderRadius: 3,
   },
   paginationDotInactive: {
-    backgroundColor: 'rgba(255,255,255,0.4)',
+    backgroundColor: 'rgba(255,255,255,0.3)',
   },
   rightSection: {
     position: 'absolute',
-    bottom: spacing.lg,
+    bottom: spacing.xl,
     right: spacing.sm,
     alignItems: 'center',
     gap: spacing.lg,
+    backgroundColor: 'rgba(18, 10, 33, 0.4)',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+    borderRadius: 30,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
   },
   actionButton: {
     alignItems: 'center',
@@ -370,7 +432,10 @@ const styles = StyleSheet.create({
   actionText: {
     color: colors.primary,
     fontSize: typography.size.xs,
-    marginTop: spacing.xs,
-    fontWeight: '600',
+    marginTop: 4,
+    fontWeight: 'bold',
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
 });

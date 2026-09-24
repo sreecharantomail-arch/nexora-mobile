@@ -1,10 +1,11 @@
 import { io, Socket } from 'socket.io-client';
 import { getToken } from '../utils/secureStore';
-import { Platform } from 'react-native';
 
-const SOCKET_URL = process.env.EXPO_PUBLIC_API_URL 
-  ? process.env.EXPO_PUBLIC_API_URL.replace('/api', '') 
-  : 'http://192.168.1.49:5000';
+if (!process.env.EXPO_PUBLIC_API_URL) {
+  throw new Error('EXPO_PUBLIC_API_URL environment variable is missing. Please set EXPO_PUBLIC_API_URL in your .env file.');
+}
+
+const SOCKET_URL = process.env.EXPO_PUBLIC_API_URL.replace('/api', '');
 
 let socket: Socket | null = null;
 

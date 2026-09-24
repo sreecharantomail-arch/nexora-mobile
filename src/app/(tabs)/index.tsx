@@ -1,16 +1,20 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, StyleSheet, Platform, StatusBar as RNStatusBar, ActivityIndicator, Text, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ActivityIndicator, Text, TouchableOpacity } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MessageCircle } from 'lucide-react-native';
-import { colors } from '../../theme';
+import { colors, spacing } from '../../theme';
 import FeedList from '../../components/Feed/FeedList';
 import { api } from '../../services/api';
 
 export default function HomeScreen() {
   const [videos, setVideos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'foryou' | 'following'>('foryou');
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const fetchFeed = async () => {
     setLoading(true);
@@ -19,11 +23,33 @@ export default function HomeScreen() {
       const res = await api.get(endpoint);
       if (res.data.success) {
         setVideos(res.data.data.videos);
+        setNextCursor(res.data.data.nextCursor);
       }
     } catch (error) {
       console.error('Error fetching feed:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchMore = async () => {
+    if (!nextCursor || loadingMore) return;
+    
+    setLoadingMore(true);
+    try {
+      const endpoint = activeTab === 'following' 
+        ? `/videos/feed/following?cursor=${nextCursor}` 
+        : `/videos/feed?cursor=${nextCursor}`;
+      
+      const res = await api.get(endpoint);
+      if (res.data.success) {
+        setVideos(prev => [...prev, ...res.data.data.videos]);
+        setNextCursor(res.data.data.nextCursor);
+      }
+    } catch (error) {
+      console.error('Error fetching more videos:', error);
+    } finally {
+      setLoadingMore(false);
     }
   };
 
@@ -42,7 +68,7 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.topNav}>
+      <View style={[styles.topNav, { paddingTop: Math.max(insets.top, 20) + spacing.xs }]}>
         <View style={styles.navTabs}>
           <TouchableOpacity onPress={() => setActiveTab('following')}>
             <Text style={[styles.navText, activeTab === 'following' && styles.activeNavText]}>Following</Text>
@@ -62,7 +88,7 @@ export default function HomeScreen() {
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : videos.length > 0 ? (
-        <FeedList data={videos} />
+        <FeedList data={videos} onEndReached={fetchMore} loadingMore={loadingMore} />
       ) : (
         <View style={styles.center}>
           <Text style={styles.emptyText}>
@@ -78,11 +104,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-    // Avoid top notch overlapping the feed if not using safe area
-    paddingTop: Platform.OS === 'android' ? RNStatusBar.currentHeight : 0,
   },
   topNav: {
-    paddingTop: Platform.OS === 'android' ? (RNStatusBar.currentHeight || 0) + 10 : 50,
     paddingBottom: 10,
     flexDirection: 'row',
     justifyContent: 'center',

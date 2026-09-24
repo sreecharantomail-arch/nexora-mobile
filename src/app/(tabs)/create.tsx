@@ -13,49 +13,63 @@ export default function CreateScreen() {
   const router = useRouter();
 
   const handlePickFromGallery = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images', 'videos'],
-      allowsEditing: false, // editing not supported with multiple selection
-      allowsMultipleSelection: true,
-      selectionLimit: 10,
-      quality: 1,
-      videoMaxDuration: 60,
-    });
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Permission to access gallery is required to pick photos and videos.');
+        return;
+      }
 
-    if (!result.canceled && result.assets.length > 0) {
-      validateAndProceed(result.assets);
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images', 'videos'],
+        allowsEditing: false,
+        allowsMultipleSelection: false,
+        quality: 1,
+        videoMaxDuration: 60,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        validateAndProceed(result.assets);
+      }
+    } catch (error) {
+      console.error('Gallery pick error:', error);
+      Alert.alert('Error', 'Failed to open gallery. Please try again.');
     }
   };
 
   const validateAndProceed = (assets: ImagePicker.ImagePickerAsset[]) => {
-    // Basic validation for videos
-    for (const media of assets) {
+    const formattedAssets = assets.map(a => {
+      const isVideo = a.type === 'video' || (a.mimeType && a.mimeType.startsWith('video')) || /\.(mp4|mov|quicktime|avi|mkv|webm)$/i.test(a.uri);
+      const mediaType = isVideo ? 'video' : 'image';
+      const durationSec = a.duration ? a.duration / 1000 : 0;
+      return {
+        uri: a.uri,
+        type: mediaType,
+        duration: durationSec,
+      };
+    });
+
+    // Validate video duration rules
+    for (const media of formattedAssets) {
       if (media.type === 'video') {
-        if (!media.duration) {
-          Alert.alert('Error', 'Unable to read video information.');
-          return;
-        }
-        const durationSeconds = media.duration / 1000;
-        if (durationSeconds < 5) {
-          Alert.alert('Error', 'One of the videos is too short. Videos must be at least 30 seconds.');
-          return;
-        }
-        if (durationSeconds >= 60) {
-          Alert.alert('Error', 'One of the videos is too long. Videos must be under 1 minute.');
-          return;
+        if (media.duration > 0) {
+          if (media.duration < 5) {
+            Alert.alert('Error', 'The video is too short. Videos must be at least 5 seconds long.');
+            return;
+          }
+          if (media.duration >= 60) {
+            Alert.alert('Error', 'The video is too long. Videos must be under 60 seconds long.');
+            return;
+          }
         }
       }
     }
 
-    // Pass assets to preview
+    // Pass selected asset to preview
     router.push({
       pathname: '/(modals)/upload-preview',
       params: {
-        mediaItems: JSON.stringify(assets.map(a => ({
-          uri: a.uri,
-          type: a.type,
-          duration: a.duration ? a.duration / 1000 : 0
-        })))
+        mediaItems: JSON.stringify(formattedAssets)
       }
     } as any);
   };
@@ -72,7 +86,7 @@ export default function CreateScreen() {
       <View style={styles.options}>
         <TouchableOpacity style={styles.button} onPress={handlePickFromGallery}>
           <ImageIcon color={colors.primary} size={32} />
-          <Text style={styles.buttonText}>Photo / Video from Gallery</Text>
+          <Text style={styles.buttonText}>Select Photo or Video</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.button} onPress={async () => {

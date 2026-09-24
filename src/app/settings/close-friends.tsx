@@ -1,54 +1,32 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, Image, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, CheckCircle, Circle } from 'lucide-react-native';
+import { ArrowLeft } from 'lucide-react-native';
 import { api } from '../../services/api';
 import { colors, typography, spacing, radius } from '../../theme';
-import { useAuthStore } from '../../store/authStore';
 
 export default function CloseFriendsScreen() {
   const router = useRouter();
-  const { user, setUser } = useAuthStore();
+
   const [users, setUsers] = useState<any[]>([]); // This should ideally be all users you follow
   const [loading, setLoading] = useState(true);
 
-  // We will fetch users the current user follows, and pre-select the ones in close friends
   useEffect(() => {
-    const fetchCloseFriendsData = async () => {
+    const fetchActualCloseFriends = async () => {
       try {
-        // Fetch current user's profile to get following and close friends list
-        const [profileRes, followsRes] = await Promise.all([
-          api.get(`/users/${user?.username}`),
-          api.get('/users/search?q=') // Getting all users for simplicity. In a real app, you'd fetch 'following' list.
-        ]);
-
-        if (profileRes.data.success && followsRes.data.success) {
-           // We might need an explicit 'following' endpoint, but since we don't have one easily accessible, 
-           // let's just fetch close friends specifically and maybe search for users to add.
-           // Actually, since we added `getCloseFriends` route, let's use that.
+        const res = await api.get('/users/me/close-friends');
+        if (res.data.success) {
+          setUsers(res.data.data);
         }
-      } catch (error) {
-        console.error(error);
+      } catch (e) {
+        console.error(e);
       } finally {
         setLoading(false);
       }
     };
-    // fetchCloseFriendsData();
+
     fetchActualCloseFriends();
   }, []);
-
-  const fetchActualCloseFriends = async () => {
-    try {
-      const res = await api.get('/users/me/close-friends');
-      if (res.data.success) {
-        setUsers(res.data.data);
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const removeFriend = async (id: string) => {
     try {
@@ -71,7 +49,7 @@ export default function CloseFriendsScreen() {
       </View>
 
       <View style={styles.infoBox}>
-        <Text style={styles.infoText}>We don't send notifications when you edit your close friends list.</Text>
+        <Text style={styles.infoText}>We don&apos;t send notifications when you edit your close friends list.</Text>
       </View>
 
       {loading ? (

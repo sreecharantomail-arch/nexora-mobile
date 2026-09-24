@@ -4,7 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronLeft, Send } from 'lucide-react-native';
 import { api } from '../../services/api';
-import { initSocket, disconnectSocket } from '../../services/socket';
+import { initSocket } from '../../services/socket';
 import { colors, typography, spacing, radius } from '../../theme';
 import { useAuthStore } from '../../store/authStore';
 
@@ -22,51 +22,57 @@ export default function ChatScreen() {
   const flatListRef = useRef<FlatList>(null);
 
   useEffect(() => {
-    setupChat();
-    return () => {
-      if (socketRef.current) {
-        socketRef.current.emit('leave_chat', conversationId);
-        // We don't necessarily disconnect entirely so they stay online, just remove listeners
-        socketRef.current.off('receive_message');
-        socketRef.current.off('receive_typing_start');
-        socketRef.current.off('receive_typing_end');
+    let activeSocket: any = null;
+
+    const handleReceiveMessage = (newMessage: any) => {
+      setMessages(prev => [newMessage, ...prev]);
+    };
+
+    const handleTypingStart = (data: any) => {
+      if (data.userId === otherUserId) setIsTyping(true);
+    };
+
+    const handleTypingEnd = (data: any) => {
+      if (data.userId === otherUserId) setIsTyping(false);
+    };
+
+    const setupChat = async () => {
+      try {
+        // Fetch historical messages
+        const res = await api.get(`/chat/messages/${conversationId}`);
+        if (res.data.success) {
+          setMessages(res.data.data.reverse()); // Reverse for inverted FlatList
+        }
+
+        // Initialize Socket
+        const socket = await initSocket();
+        socketRef.current = socket;
+        activeSocket = socket;
+
+        if (socket) {
+          socket.emit('join_chat', conversationId);
+          socket.on('receive_message', handleReceiveMessage);
+          socket.on('receive_typing_start', handleTypingStart);
+          socket.on('receive_typing_end', handleTypingEnd);
+        }
+      } catch (error) {
+        console.error('Error setting up chat:', error);
+      } finally {
+        setLoading(false);
       }
     };
-  }, [conversationId]);
 
-  const setupChat = async () => {
-    try {
-      // Fetch historical messages
-      const res = await api.get(`/chat/messages/${conversationId}`);
-      if (res.data.success) {
-        setMessages(res.data.data.reverse()); // Reverse for inverted FlatList
+    setupChat();
+
+    return () => {
+      if (activeSocket) {
+        activeSocket.emit('leave_chat', conversationId);
+        activeSocket.off('receive_message', handleReceiveMessage);
+        activeSocket.off('receive_typing_start', handleTypingStart);
+        activeSocket.off('receive_typing_end', handleTypingEnd);
       }
-
-      // Initialize Socket
-      const socket = await initSocket();
-      socketRef.current = socket;
-
-      if (socket) {
-        socket.emit('join_chat', conversationId);
-
-        socket.on('receive_message', (newMessage: any) => {
-          setMessages(prev => [newMessage, ...prev]);
-        });
-
-        socket.on('receive_typing_start', (data: any) => {
-          if (data.userId === otherUserId) setIsTyping(true);
-        });
-
-        socket.on('receive_typing_end', (data: any) => {
-          if (data.userId === otherUserId) setIsTyping(false);
-        });
-      }
-    } catch (error) {
-      console.error('Error setting up chat:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
+  }, [conversationId, otherUserId]);
 
   const handleSend = () => {
     if (!inputText.trim() || !socketRef.current) return;

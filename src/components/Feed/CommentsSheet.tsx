@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, FlatList, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, FlatList, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator, BackHandler } from 'react-native';
 import { X, Send } from 'lucide-react-native';
 import { colors, typography, spacing, radius } from '../../theme';
 import { api } from '../../services/api';
@@ -32,10 +32,18 @@ export default function CommentsSheet({ videoId, visible, onClose, onCommentsCou
   };
 
   useEffect(() => {
+    let backHandler: any = null;
     if (visible) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       fetchComments();
+      backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+        onClose();
+        return true;
+      });
     }
+    return () => {
+      if (backHandler) backHandler.remove();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, videoId]);
 

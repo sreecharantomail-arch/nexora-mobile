@@ -2,13 +2,16 @@ import axios from 'axios';
 import { getToken, saveToken } from '../utils/secureStore';
 import { useAuthStore } from '../store/authStore';
 
-// Use the live production Render API URL
-export const BASE_URL = 'http://192.168.1.49:5000/api';
+if (!process.env.EXPO_PUBLIC_API_URL) {
+  throw new Error('EXPO_PUBLIC_API_URL environment variable is missing. Please set EXPO_PUBLIC_API_URL in your .env file.');
+}
+
+export const BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 
 // eslint-disable-next-line import/no-named-as-default-member
 export const api = axios.create({
   baseURL: BASE_URL,
-  timeout: 10000, // 10 second timeout so it doesn't hang infinitely
+  timeout: 30000, // 30 second timeout to accommodate media uploads
   headers: {
     'Content-Type': 'application/json',
   },
@@ -19,6 +22,10 @@ api.interceptors.request.use(
     const token = await getToken('accessToken');
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+    // If sending FormData, delete Content-Type header so Axios generates boundary automatically
+    if (config.data instanceof FormData && config.headers) {
+      delete config.headers['Content-Type'];
     }
     return config;
   },

@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { ChevronLeft } from 'lucide-react-native';
@@ -14,22 +14,24 @@ export default function InboxScreen() {
   const router = useRouter();
   const currentUser = useAuthStore(state => state.user);
 
-  useEffect(() => {
-    fetchConversations();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      const fetchConversations = async () => {
+        try {
+          const res = await api.get('/chat');
+          if (res.data.success) {
+            setConversations(res.data.data);
+          }
+        } catch (error) {
+          console.error('Error fetching conversations:', error);
+        } finally {
+          setLoading(false);
+        }
+      };
 
-  const fetchConversations = async () => {
-    try {
-      const res = await api.get('/chat');
-      if (res.data.success) {
-        setConversations(res.data.data);
-      }
-    } catch (error) {
-      console.error('Error fetching conversations:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+      fetchConversations();
+    }, [])
+  );
 
   const renderItem = ({ item }: { item: any }) => {
     // Find the other participant

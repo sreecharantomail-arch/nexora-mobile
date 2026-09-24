@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, FlatList, ActivityIndicator, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, FlatList, ActivityIndicator, Dimensions, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Settings, Play } from 'lucide-react-native';
 import { colors, typography, spacing, radius } from '../../theme';
@@ -16,38 +16,86 @@ export default function ProfileScreen() {
   const router = useRouter();
   const [videos, setVideos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'videos' | 'saved'>('videos');
 
   useEffect(() => {
-    if (user?.username) {
-      fetchUserVideos();
-    }
-  }, [user?.username]);
-
-  const fetchUserVideos = async () => {
-    setLoading(true);
-    try {
-      const res = await api.get(`/users/${user?.username}/videos`);
-      if (res.data.success) {
-        setVideos(res.data.data);
+    const fetchUserVideos = async () => {
+      setLoading(true);
+      try {
+        const res = await api.get(`/users/${user?.username}/videos`);
+        if (res.data.success) {
+          setVideos(res.data.data);
+        }
+      } catch (error) {
+        console.error('Error fetching user videos:', error);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error('Error fetching user videos:', error);
-    } finally {
-      setLoading(false);
+    };
+
+    const fetchSavedVideos = async () => {
+      setLoading(true);
+      try {
+        const res = await api.get('/videos/user/saved');
+        if (res.data.success) {
+          setVideos(res.data.data);
+        }
+      } catch (error) {
+        console.error('Error fetching saved videos:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (user?.username) {
+      if (activeTab === 'saved') {
+        fetchSavedVideos();
+      } else {
+        fetchUserVideos();
+      }
     }
-  };
+  }, [user?.username, activeTab]);
 
   const handleSettings = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push('/settings');
   };
 
+  const handleLongPressVideo = (video: any) => {
+    if (activeTab === 'videos') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      Alert.alert(
+        'Delete Video',
+        'Do you want to delete this video?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                const res = await api.delete(`/videos/${video._id}`);
+                if (res.data.success) {
+                  setVideos(prev => prev.filter(v => v._id !== video._id));
+                  Alert.alert('Deleted', 'Video deleted successfully.');
+                }
+              } catch (err: any) {
+                Alert.alert('Error', err.response?.data?.error?.message || 'Failed to delete video');
+              }
+            }
+          }
+        ]
+      );
+    }
+  };
+
   const renderVideoItem = ({ item }: { item: any }) => (
     <TouchableOpacity 
       style={styles.videoItem}
       onPress={() => {
-        // We could navigate to a detailed view of the video here
+        router.push(`/video/${item._id}` as any);
       }}
+      onLongPress={() => handleLongPressVideo(item)}
     >
       <Image source={{ uri: item.thumbnailUrl }} style={styles.videoThumbnail} />
       <View style={styles.viewsContainer}>
@@ -94,9 +142,19 @@ export default function ProfileScreen() {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.videosTab}>
-        <Text style={styles.videosTabText}>My Videos</Text>
-        <View style={styles.tabIndicator} />
+      <View style={styles.tabsContainer}>
+        <TouchableOpacity 
+          style={[styles.tab, activeTab === 'videos' && styles.activeTab]} 
+          onPress={() => setActiveTab('videos')}
+        >
+          <Text style={[styles.tabText, activeTab === 'videos' && styles.activeTabText]}>My Videos</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.tab, activeTab === 'saved' && styles.activeTab]} 
+          onPress={() => setActiveTab('saved')}
+        >
+          <Text style={[styles.tabText, activeTab === 'saved' && styles.activeTabText]}>Saved</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -119,7 +177,9 @@ export default function ProfileScreen() {
           renderItem={renderVideoItem}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>No videos uploaded yet</Text>
+              <Text style={styles.emptyText}>
+                {activeTab === 'saved' ? "No saved videos yet" : "No videos uploaded yet"}
+              </Text>
             </View>
           }
         />
@@ -232,22 +292,29 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: typography.size.md,
   },
-  videosTab: {
-    alignItems: 'center',
+  tabsContainer: {
+    flexDirection: 'row',
     marginTop: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  videosTabText: {
-    color: colors.primary,
+  tab: {
+    flex: 1,
+    alignItems: 'center',
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  activeTab: {
+    borderBottomColor: colors.primary,
+  },
+  tabText: {
+    color: colors.secondary,
     fontWeight: 'bold',
     fontSize: typography.size.md,
-    paddingBottom: spacing.sm,
   },
-  tabIndicator: {
-    height: 2,
-    backgroundColor: colors.primary,
-    width: 60,
+  activeTabText: {
+    color: colors.primary,
   },
   listContent: {
     paddingBottom: spacing.xxl,

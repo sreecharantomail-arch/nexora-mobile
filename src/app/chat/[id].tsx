@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, FlatList, KeyboardAvoidingView, Platform, Image } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, FlatList, KeyboardAvoidingView, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ArrowLeft, Send } from 'lucide-react-native';
 import { api } from '../../services/api';
@@ -8,7 +8,7 @@ import { colors, typography, spacing, radius } from '../../theme';
 import { useAuthStore } from '../../store/authStore';
 
 export default function ChatScreen() {
-  const { id: conversationId, otherUserId, otherUsername } = useLocalSearchParams<{ id: string, otherUserId: string, otherUsername: string }>();
+  const { id: conversationId, otherUsername } = useLocalSearchParams<{ id: string, otherUserId: string, otherUsername: string }>();
   const [messages, setMessages] = useState<any[]>([]);
   const [inputText, setInputText] = useState('');
   const router = useRouter();

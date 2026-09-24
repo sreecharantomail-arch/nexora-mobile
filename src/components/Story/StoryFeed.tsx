@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, ActivityIndi
 import { useRouter } from 'expo-router';
 import { Plus } from 'lucide-react-native';
 import { api } from '../../services/api';
-import { colors, typography, spacing, radius } from '../../theme';
+import { colors, spacing } from '../../theme';
 import { useAuthStore } from '../../store/authStore';
 
 export default function StoryFeed() {
@@ -32,8 +32,9 @@ export default function StoryFeed() {
 
   const renderItem = ({ item, index }: { item: any, index: number }) => {
     const isMe = item.user._id === user?._id;
-    const hasCloseFriendsStory = item.stories.some((s: any) => s.audience === 'CLOSE_FRIENDS');
-    const allViewed = item.stories.every((s: any) => s.viewed);
+    const userStories = item.stories ?? [];
+    const hasCloseFriendsStory = userStories.some((s: any) => s.audience === 'CLOSE_FRIENDS');
+    const allViewed = userStories.length > 0 && userStories.every((s: any) => s.viewed);
     
     let ringStyle = styles.unviewedRing;
     if (allViewed) {

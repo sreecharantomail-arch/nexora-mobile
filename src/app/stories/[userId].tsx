@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, Dimensions, TouchableWithoutFeedback, Image, Text, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { api } from '../../services/api';
-import { colors, typography, spacing } from '../../theme';
+import { colors } from '../../theme';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 export default function StoryViewerScreen() {
   const { userId } = useLocalSearchParams();
@@ -37,7 +37,7 @@ export default function StoryViewerScreen() {
       }
     };
     fetchUserStories();
-  }, [userId]);
+  }, [userId, router]);
 
   const currentStory = stories[currentIndex];
 
@@ -45,6 +45,24 @@ export default function StoryViewerScreen() {
     p.loop = false;
     if (!isPaused) p.play();
   });
+
+  const handleNext = useCallback(() => {
+    if (currentIndex < stories.length - 1) {
+      setCurrentIndex(prev => prev + 1);
+      setProgress(0);
+    } else {
+      router.back();
+    }
+  }, [currentIndex, stories.length, router]);
+
+  const handlePrev = useCallback(() => {
+    if (currentIndex > 0) {
+      setCurrentIndex(prev => prev - 1);
+      setProgress(0);
+    } else {
+      router.back();
+    }
+  }, [currentIndex, router]);
 
   useEffect(() => {
     if (!currentStory) return;
@@ -63,30 +81,16 @@ export default function StoryViewerScreen() {
         }, 250);
       }
       return () => clearInterval(interval);
-    } else {
-      // For video, we'd ideally sync with video time, but expo-video currently requires refs or event listeners.
-      // For simplicity in this demo, let's just let the video play and advance on end.
-      // A more robust implementation would use player.status.
+    } else if (player) {
+      const subscription = player.addListener('playToEnd', () => {
+        handleNext();
+      });
+      return () => {
+        subscription.remove();
+      };
     }
-  }, [currentIndex, isPaused, currentStory]);
+  }, [currentIndex, isPaused, currentStory, player, handleNext]);
 
-  const handleNext = () => {
-    if (currentIndex < stories.length - 1) {
-      setCurrentIndex(prev => prev + 1);
-      setProgress(0);
-    } else {
-      router.back();
-    }
-  };
-
-  const handlePrev = () => {
-    if (currentIndex > 0) {
-      setCurrentIndex(prev => prev - 1);
-      setProgress(0);
-    } else {
-      router.back();
-    }
-  };
 
   const handlePress = (e: any) => {
     const x = e.nativeEvent.locationX;
@@ -136,11 +140,15 @@ export default function StoryViewerScreen() {
         onPress={handlePress}
         onPressIn={() => {
           setIsPaused(true);
-          if (currentStory.mediaType === 'video') player.pause();
+          if (currentStory.mediaType === 'video') {
+            player?.pause();
+          }
         }}
         onPressOut={() => {
           setIsPaused(false);
-          if (currentStory.mediaType === 'video') player.play();
+          if (currentStory.mediaType === 'video') {
+            player?.play();
+          }
         }}
       >
         <View style={styles.mediaContainer}>
